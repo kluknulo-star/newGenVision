@@ -2,51 +2,50 @@
 
 class Translation
 {
-    const DETECT_YA_URL = 'https://translate.yandex.net/api/v1.5/tr.json/detect';
     const TRANSLATE_YA_URL = 'https://translate.yandex.net/api/v1.5/tr.json/translate';
 
-    public $key = "AIza1yCf2zqjfngodidg-7834bjhsdfs";
-
-    public function init(){
-        parent::init();
-
-        if (empty($this->key)){
-            throw new InvalidConfigException("Field <b>$key</b> is required");
+    /**
+     * Check and get API key for translator
+     * @return string
+     */
+    protected static function getKey(): string
+    {
+        $key = getenv('KEY');
+        if (empty($key)) {
+            throw new InvalidConfigException("Key is required in .env file");
         }
+        return $key;
     }
 
+
     /**
-     * @param $format text format need to translate
+     * @param $format string format need to translate
      * @return string
-     * */
-    public static function translate_text($format="text")
+     * @throws Exception
+     */
+    public static function translateText(string $format = 'text'): string
     {
-        if (empty($this->key)){
-            throw new InvalidConfigException("Field <b>$key</b> is required");
-        }
+        $values = [
+            'key' => self::getKey(),
+            'text' => htmlspecialchars($_GET['text']),
+            'lang' => htmlspecialchars($_GET['lang']),
+            'format' => $format === 'text' ? 'plain' : $format,
+        ];
 
-        $values = array(
-            'key' => $this->key,
-            'text' => $_GET['text'],
-            'lang' => $_GET['lang'],
-            'format' => $format == "text" ? 'plain' : $format,
-        );
-
-        $formData = http_build_query($values);
+        $urlEncoded = http_build_query($values);
 
         $ch = curl_init(self::TRANSLATE_YA_URL);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $formData);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $urlEncoded);
 
-        $json = curl_exec($ch);
+        $responseJson = curl_exec($ch);
         curl_close($ch);
 
-        $data = json_decode($json, true);
-        if ($data['code'] == 200){
-            return $data['text'];
+        $response = json_decode($responseJson, true);
+
+        if ($response['code'] !== 200) {
+            throw new Exception("Response code is {$response['code']}. Message: {$response['message']}");
         }
-        return $data;
+        return $response['text'];
     }
-
-
 }
